@@ -4,15 +4,14 @@
 int main()
 {
 	Stack stack = {};
-	printf("SIZEEE = %zu\n", sizeof(stack));
+
 	StackCtor(&stack, 8);
-	printf("before dtor\n");
+	stack.data = NULL;
+
+	StackPush(&stack, 9);
+
 	StackPop(&stack);
-	printf("after\n");	
-	StackPop(&stack);
-	printf("ded\n");
-	StackDtor(&stack);
-	return 0;
+
 	StackPush(&stack, 9);
 	const int cnt = 1000;
 	int i = 0;

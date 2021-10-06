@@ -104,7 +104,6 @@ static int StackResize(Stack *stack, size_t nsize)
 
 	setCanaryPtr(&stack->data);
 	
-	printf("stack resized : ");
 	stack->data = (val_t*)reallocarray(stack->data, sizeAlign(sizeof(val_t), nsize, 
 				sizeof(uint64_t)) + 2 * sizeof(uint64_t), 1);
 
@@ -126,38 +125,38 @@ static int StackResize(Stack *stack, size_t nsize)
 
 int StackCheck(Stack *stack)
 {//TODO DEFINE
-	if (stack == NULL)	
-		return ERRNUM = NULLPTR_STACK;
+	if (stack == NULL)
+		SET_ERR(NULLPTR_STACK);
 
-	if (stack->data == NULL) 
-		return ERRNUM = UNINIT_DATA;
+	if (stack->data == NULL)
+		SET_ERR(UNINIT_DATA);
+	
+	if (stack->data == (val_t *)(POISONED_MEM)) 
+		SET_ERR(POISONED_STACK);
 
-	if (stack->data == (val_t *)POISONED_MEM) 
-		return ERRNUM = POISONED_STACK;
-
-	if (stack->size > stack->capacity) 
-		return ERRNUM = STACK_OVERFLOW;
+	if (stack->size > stack->capacity)
+	       SET_ERR(STACK_OVERFLOW);
 	
 	if (stack->size < 0)
-		return ERRNUM = UNDERFLOW_ERR;
+		SET_ERR(UNDERFLOW_ERR);
 
 	if (stack->LCANARY != CANARYVAL && stack->RCANARY != CANARYVAL)
-		return ERRNUM = INVALID_CANARIES;
+		SET_ERR(INVALID_CANARIES);
 
 	if (stack->LCANARY != CANARYVAL)
-		return ERRNUM = INVALID_LCANARY;
+		SET_ERR(INVALID_LCANARY);
 
 	if (stack->RCANARY != CANARYVAL)
-		return ERRNUM = INVALID_RCANARY;
+		SET_ERR(INVALID_RCANARY);
 
 	if (*(uint64_t*)((char *)stack->data-sizeof(uint64_t)) != CANARYVAL)
-		return ERRNUM = INVALID_DATA_LCANARY;
+		SET_ERR(INVALID_DATA_LCANARY);
 	
 	if (*(uint64_t*)(stack->data + stack->capacity) != CANARYVAL)
-		return ERRNUM = INVALID_DATA_RCANARY;
+		SET_ERR(INVALID_DATA_RCANARY);
 	
 	if (stack->hash != StackHash(stack))
-		return ERRNUM = INVALID_HASH;
+		SET_ERR(INVALID_HASH);
 	
 	return NO_ERR;
 }
@@ -182,7 +181,7 @@ void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const in
 		return;
 	}
 	
-	fprintf(file, "Stack<%s>[%p]:",typeid(stack->data).name(), stack);	
+	fprintf(file, "Stack<%s>[%p]:",typeid(val_t).name(), stack);	
 	if (ERRNUM)
 		fprintf(file, "ERROR!");
 	else
@@ -190,14 +189,14 @@ void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const in
 
 	fprintf(file, "; \"%s\" called from %s at %s (%d)\n",
 		       VAR_NAME(stack), srcfunc, srcfile, line);
-	fprintf(file, "\thash :  %" PRIu32"\n", StackHash(stack));	
+	if (stack->data != (val_t *)(POISONED_MEM) &&  stack->data != NULL)
+		fprintf(file, "\thash :  %" PRIu32"\n", StackHash(stack));	
 	fprintf(file,"\tstructure left canary = %" PRIu64 "\n\tstructure right canary = %" 
 			PRIu64 "\n",stack->LCANARY,stack->RCANARY);
 	
 	fprintf(file, "{\n\tcapasity = %zu;\n\tsize = %d;\n", stack->capacity, stack->size);
-	
-	fprintf(file,"\tleft data canary[%p] = %" PRIu64 "\n", (char *)stack->data-sizeof(uint64_t),
-			*(uint64_t*)((char *)stack->data-sizeof(uint64_t)));
+	if (stack->data != (val_t *)(POISONED_MEM) &&  stack->data != NULL)	
+		fprintf(file,"\tleft data canary[%p] = %" PRIu64 "\n", (char *)stack->data-sizeof(uint64_t),*(uint64_t*)((char *)stack->data-sizeof(uint64_t)));
 	
 	fprintf(file, "\tdata[%p]\n\t{\n", stack->data);
 
@@ -217,9 +216,11 @@ void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const in
 		}
 	}
 
-	fprintf(file,"\t}\n\tright data canary[%p] : %" PRIu64 "\n}\n\n", 
+	fprintf(file,"\t}\n");
+	if (stack->data != (val_t *)(POISONED_MEM) &&  stack->data != NULL)
+		fprintf(file,"\tright data canary[%p] : %" PRIu64 "\n", 
 			stack->data + stack->capacity,*(uint64_t*)(stack->data + stack->capacity));
-
+	fprintf(file,"}\n\n");
 	fclose(file);
 }
 
