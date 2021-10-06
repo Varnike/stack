@@ -115,7 +115,7 @@ static int StackResize(Stack *stack, size_t nsize)
 		return REALL_ERR;
 
 	stack->capacity = sizeAlign(sizeof(val_t), nsize, sizeof(uint64_t))/sizeof(val_t);;
-	StackPrint(stack);
+	//StackPrint(stack);
 	
 	SET_HASH;
 	ASSERT_OK;
@@ -123,8 +123,19 @@ static int StackResize(Stack *stack, size_t nsize)
 	return NO_ERR;
 }
 
+int StackSetFileName(Stack *stack, const char *name)
+{
+#if MULTIPLE_LOGS == 1 
+	if (name == NULL || stack == NULL)
+		return -1;
+	else {
+		stack->filename = (char *)name;
+	}
+#endif
+	return 0;
+}
 int StackCheck(Stack *stack)
-{//TODO DEFINE
+{
 	if (stack == NULL)
 		SET_ERR(NULLPTR_STACK);
 
@@ -167,7 +178,9 @@ void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const in
 #else 
 	FILE *file = NULL;
 	if (stack->filename != NULL)
-		*file = fopen(filename, "w");
+		file = fopen(stack->filename, "w");
+	else 
+		file = fopen("log.txt", "w");
 #endif
 	if (file == NULL) 
 		perror("Can't open/create log file\n");
@@ -222,11 +235,6 @@ void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const in
 			stack->data + stack->capacity,*(uint64_t*)(stack->data + stack->capacity));
 	fprintf(file,"}\n\n");
 	fclose(file);
-}
-
-void StackPrint(Stack *stack)
-{
-	printf("[SIZE = %d], [CAPACITY = %zu]\n", stack->size, stack->capacity);
 }
 
 static void setCanaryPtr(val_t **data) 

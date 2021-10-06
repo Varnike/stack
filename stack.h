@@ -63,6 +63,7 @@ struct Stack {
 	char *filename;
 #endif
 	uint32_t hash;
+
 	uint64_t RCANARY;
 };
 
@@ -71,9 +72,8 @@ val_t StackPop(Stack *stack);
 int _StackCtor(Stack *stack, int size = MINIMUM_STACK_SIZE, const int src_line = 0, 
 		const char *src_file = NULL);
 int StackDtor(Stack *stack);
-int StackSetFileName(const char *name);
+int StackSetFileName(Stack *stack,const char *name);
 int StackCheck(Stack *stack);
-void StackPrint(Stack *stack);
 void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const int line);
 int sizeAlign(size_t val_s, int numb, int aligment);
 uint32_t djb_hash(const char *message, size_t data_length);
