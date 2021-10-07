@@ -23,6 +23,6 @@
  * Set CANARIES_CHECK to 1 to enable canaries protection
  */
 
-#define CANARIES_CHECK 1
+#define CANARIES_CHECK 0
 
 #endif

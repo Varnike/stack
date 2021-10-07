@@ -98,8 +98,10 @@ const uint64_t CANARYVAL = 0xDABABAF;
 const int MINIMUM_STACK_SIZE = 8;
 
 struct Stack {
+#if CANARIES_CHECK == 1
 	uint64_t LCANARY;
-	
+#endif
+
 	val_t *data;
 	int size;
 	size_t capacity;
@@ -110,7 +112,10 @@ struct Stack {
 #if HASH_CHECK == 1
 	uint32_t hash;
 #endif
+
+#if CANARIES_CHECK == 1
 	uint64_t RCANARY;
+#endif
 };
 
 int StackPush(Stack *stack, val_t val);

@@ -19,8 +19,8 @@ int main()
 		StackPush(&stack, i);
 	}
 
-	stack.LCANARY = 0;	
-	stack.data[10] = 9499878;
+	//stack.LCANARY = 0;	
+	//stack.data[10] = 9499878;
 	
 	int test_val = 0;
 	for (i = cnt ; i >= 0; i--) {

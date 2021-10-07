@@ -9,23 +9,28 @@ int _StackCtor(Stack *stack, int size, const int src_line, const char *src_file)
 	CHECK_FOR_INIT;
 
 	printf("size = %d\n", size);
-
+#if CANARIES_CHECK == 1
 	stack->LCANARY = CANARYVAL;
 	stack->RCANARY = CANARYVAL;
-
-	stack->size = 0;
 	stack->capacity = sizeAlign(sizeof(val_t), size, sizeof(uint64_t))/sizeof(val_t);
+#endif
+	stack->size = 0;
 
+#if CANARIES_CHECK == 1
 	stack->data = (val_t*)calloc(sizeAlign(sizeof(val_t), size, sizeof(uint64_t)) + 2 * sizeof(uint64_t), 1);
-	
+#else
+	stack->capacity = size;
+	stack->data = (val_t*)calloc(sizeof(val_t), stack->capacity);
+#endif
+
 	if (stack->data == NULL) {
 		EXIT_DUMP;
 	}
-
+#if CANARIES_CHECK == 1
 	*(uint64_t*)stack->data = CANARYVAL;
 	setDataPtr(&stack->data);
 	*(uint64_t*)(stack->data + size) = CANARYVAL;
-	
+#endif
 	SET_HASH;
 
 	ASSERT_OK;
@@ -43,8 +48,9 @@ int StackDtor(Stack *stack)
 #if HASH_CHECK == 1
 	stack->hash     = 0;
 #endif
+#if CANARIES_CHECK == 1 
 	setCanaryPtr(&stack->data);
-
+#endif
 	free(stack->data);
 	stack->data = (val_t*)(POISONED_MEM);
 
@@ -100,23 +106,28 @@ int StackPush(Stack *stack, val_t val)
 static int StackResize(Stack *stack, size_t nsize)
 {
 	ASSERT_OK;
-
+#if CANARIES_CHECK == 1
 	*(uint64_t*)(stack->data + stack->capacity) = 0; 
 
 	setCanaryPtr(&stack->data);
-	
-	stack->data = (val_t*)reallocarray(stack->data, sizeAlign(sizeof(val_t), nsize, 
-				sizeof(uint64_t)) + 2 * sizeof(uint64_t), 1);
+#endif
 
+#if CANARIES_CHECK == 1 
+	stack->data = (val_t*)reallocarray(stack->data, nsize, sizeof(val_t));
+#endif
+
+#if CANARIES_CHECK == 1 
 	setDataPtr(&stack->data);
 		
 	*(uint64_t*)(stack->data + nsize) = CANARYVAL;
-
+#endif
 	if (stack == NULL)
 		return REALL_ERR;
-
+#if CANARIES_CHECK == 1 
 	stack->capacity = sizeAlign(sizeof(val_t), nsize, sizeof(uint64_t))/sizeof(val_t);;
-	
+#else 
+	stack->capacity = nsize;
+#endif	
 	SET_HASH;
 	ASSERT_OK;
 
@@ -125,7 +136,7 @@ static int StackResize(Stack *stack, size_t nsize)
 
 int StackSetFileName(Stack *stack, const char *name)
 {
-#if MULTIPLE_LOGS == 1 
+#if MULTIPLE_FILES == 1 
 	if (name == NULL || stack == NULL)
 		return -1;
 	else {
@@ -196,13 +207,13 @@ void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const in
 	if (stack->data != (val_t *)(POISONED_MEM) &&  stack->data != NULL)
 		fprintf(file, "\thash :  %" PRIu32"\n", StackHash(stack));	
 #endif 
-#if MULTIPLE_LOGS == 1
+#if CANARIES_CHECK == 1
 	fprintf(file,"\tstructure left canary = %" PRIu64 "\n\tstructure right canary = %" 
 			PRIu64 "\n",stack->LCANARY,stack->RCANARY);
 #endif	
 	fprintf(file, "{\n\tcapasity = %zu;\n\tsize = %d;\n", stack->capacity, stack->size);
 
-#if MULTIPLE_LOGS == 1
+#if CANARIES_CHECK == 1
 	if (stack->data != (val_t *)(POISONED_MEM) &&  stack->data != NULL)	
 		fprintf(file,"\tleft data canary[%p] = %" PRIu64 "\n", (char *)stack->data-sizeof(uint64_t),*(uint64_t*)((char *)stack->data-sizeof(uint64_t)));
 #endif
@@ -226,7 +237,7 @@ void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const in
 	}
 
 	fprintf(file,"\t}\n");
-#if MULTIPLE_LOGS == 1
+#if CANARIES_CHECK == 1
 	if (stack->data != (val_t *)(POISONED_MEM) &&  stack->data != NULL)
 		fprintf(file,"\tright data canary[%p] : %" PRIu64 "\n", 
 			stack->data + stack->capacity,*(uint64_t*)(stack->data + stack->capacity));
