@@ -18,6 +18,7 @@
  *
  * Heavily lightweight errno analog.
  */
+
 extern int ERRNUM;
 
 const int ERRS_CNT = 23;
@@ -57,4 +58,5 @@ enum errtype {
  */
 
 const char *errmsg(int errt);
+
 #endif //ERROR_H
