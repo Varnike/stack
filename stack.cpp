@@ -112,8 +112,11 @@ static int StackResize(Stack *stack, size_t nsize)
 	setCanaryPtr(&stack->data);
 #endif
 
-#if CANARIES_CHECK == 1 
+#if CANARIES_CHECK == 0 
 	stack->data = (val_t*)reallocarray(stack->data, nsize, sizeof(val_t));
+#else 
+	stack->data = (val_t*)reallocarray(stack->data, sizeAlign(sizeof(val_t), nsize,
+				sizeof(uint64_t)) + 2 * sizeof(uint64_t), 1);
 #endif
 
 #if CANARIES_CHECK == 1 
@@ -145,9 +148,6 @@ int StackSetFileName(Stack *stack, const char *name)
 #endif
 	return 0;
 }
-
-
-//#define CHECK_(what, code)  if (what) SET_ERR (code)
 
 
 int StackCheck(Stack *stack)
