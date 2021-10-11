@@ -244,6 +244,7 @@ void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const in
 #endif
 	fprintf(file,"}\n\n");
 	fclose(file);
+
 }
 
 static void setCanaryPtr(val_t **data) 
@@ -281,8 +282,6 @@ uint32_t djb_hash(const char* data, size_t length)
 #if HASH_CHECK == 1
 uint32_t StackHash(Stack *stack)
 {
-	Stack stack_ex = {};
-
 	uint32_t dhash = 0, stackhash = 0;
 
 	dhash = djb_hash((const char *)stack->data, stack->size * sizeof(val_t));
@@ -290,7 +289,7 @@ uint32_t StackHash(Stack *stack)
 	uint32_t current_hash = stack->hash;	
 	stack->hash = dhash;
 		
-	dhash = djb_hash((const char *)stack, sizeof(stack_ex));
+	dhash = djb_hash((const char *)stack, sizeof(stack));
 
 	stack->hash = current_hash;
 
