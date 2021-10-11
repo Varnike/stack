@@ -41,7 +41,7 @@ int StackDtor(Stack *stack)
 {	
 	ASSERT_OK;
 	
-	memset(stack->data, 0, stack->size);
+	memset(stack->data, 0, stack->capacity);
 
 	stack->capacity = 0;
 	stack->size     =-1;
