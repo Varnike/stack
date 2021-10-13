@@ -4,30 +4,18 @@
 int main()
 {
 	Stack stack = {};
-
-	StackCtor(&stack, 8);
-	//StackDtor(&stack);	
 	
-	StackPush(&stack, 9);
+	StackCtor(&stack, 8);
 
-	StackPop(&stack);
-
-	StackPush(&stack, 9);
-	const int cnt = 100;
-	int i = 0;
-	for (i = 0; i <= cnt; i++) {
+	for (int i = 0; i != 17; i++) {
 		StackPush(&stack, i);
 	}
 
-	//stack.LCANARY = 0;	
-	stack.data[10] = 9499878;
-	
-	int test_val = 0;
-	for (i = cnt ; i >= 0; i--) {
-		if ((test_val = StackPop(&stack)) != i)
-		       printf("TEST ERROR: %d -- %d\n", i, test_val);	
+	stack.size = 9;
+		
+	for (; stack.size != 0; ) {
+		printf("%d\n",StackPop(&stack));
 	}
-	
-	
+
 	StackDtor(&stack);
 }

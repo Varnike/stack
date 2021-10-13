@@ -41,7 +41,7 @@ int StackDtor(Stack *stack)
 {	
 	ASSERT_OK;
 	
-	memset(stack->data, 0, stack->capacity);
+	memset(stack->data, 0, stack->capacity * sizeof(val_t));
 
 	stack->capacity = 0;
 	stack->size     =-1;
@@ -111,14 +111,25 @@ static int StackResize(Stack *stack, size_t nsize)
 
 	setCanaryPtr(&stack->data);
 #endif
-
+	
 #if CANARIES_CHECK == 0 
 	stack->data = (val_t*)reallocarray(stack->data, nsize, sizeof(val_t));
+	
+	if (stack->data == NULL)
+		EXIT_ERR;
+
+	memset(stack->data+ stack->size, 0, sizeof(val_t) * (nsize - stack->size));
 #else 
 	stack->data = (val_t*)reallocarray(stack->data, sizeAlign(sizeof(val_t), nsize,
 				sizeof(uint64_t)) + 2 * sizeof(uint64_t), 1);
+
+	if (stack->data == NULL)
+	        EXIT_ERR;       
+
+	memset((char *)(stack->data+ stack->size) + sizeof(uint64_t), 0, sizeof(val_t) * (nsize - stack->size));
 #endif
 
+	
 #if CANARIES_CHECK == 1 
 	setDataPtr(&stack->data);
 		
@@ -172,10 +183,10 @@ int StackCheck(Stack *stack)
 }
 
 
-
+#define file stdout
 void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const int line) {
 #if MULTIPLE_LOGS == 0
-	FILE *file = fopen("log.txt", "w");
+	//FILE *file = fopen("log.txt", "w");
 #else 
 	FILE *file = NULL;
 	if (stack->filename != NULL)
@@ -243,7 +254,7 @@ void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const in
 			stack->data + stack->capacity,*(uint64_t*)(stack->data + stack->capacity));
 #endif
 	fprintf(file,"}\n\n");
-	fclose(file);
+	//fclose(file);
 
 }
 
@@ -282,14 +293,16 @@ uint32_t djb_hash(const char* data, size_t length)
 #if HASH_CHECK == 1
 uint32_t StackHash(Stack *stack)
 {
+	Stack stack_test = {};
+
 	uint32_t dhash = 0, stackhash = 0;
 
-	dhash = djb_hash((const char *)stack->data, stack->size * sizeof(val_t));
+	dhash = djb_hash((const char *)stack->data, stack->capacity * sizeof(val_t));
 
 	uint32_t current_hash = stack->hash;	
 	stack->hash = dhash;
-		
-	dhash = djb_hash((const char *)stack, sizeof(stack));
+	
+	dhash = djb_hash((const char *)stack, sizeof(stack_test));
 
 	stack->hash = current_hash;
 

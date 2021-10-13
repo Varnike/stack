@@ -70,7 +70,8 @@
 
 #define CHECK_FOR_INIT 								\
 {										\
-	if(stack->size != 0 || stack->capacity != 0 || stack->data != NULL) {	\
+	if(stack == NULL || stack->size != 0 || stack->capacity != 0 		\
+			|| stack->data != NULL) {				\
 		ERRNUM = INVALID_STACK;						\
 		_StackDump(stack, __func__, src_file,src_line);			\
 		EXIT_ERR;							\
@@ -102,15 +103,14 @@ struct Stack {
 	uint64_t LCANARY;
 #endif
 
+#if HASH_CHECK == 1
+	uint32_t hash;
+#endif
 	val_t *data;
 	int size;
 	size_t capacity;
 #if MULTIPLE_LOGS == 1
 	char *filename;
-#endif
-
-#if HASH_CHECK == 1
-	uint32_t hash;
 #endif
 
 #if CANARIES_CHECK == 1
