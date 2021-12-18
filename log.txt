@@ -1,0 +1,13 @@
+ERROR : Uninizialized stack data!
+Stack<i>[0x7ffc469444a0]:ERROR!; "stack" called from StackPush at stack.cpp (82)
+	structure left canary = 229354415
+	structure right canary = 229354415
+{
+	capasity = 8;
+	size = 0;
+	data[(nil)]
+	{
+		[0] = NULL;
+	}
+}
+

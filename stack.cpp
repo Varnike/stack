@@ -8,24 +8,29 @@ int _StackCtor(Stack *stack, int size, const int src_line, const char *src_file)
 {	
 	CHECK_FOR_INIT;
 
-	printf("%d\n", size);
-
+	printf("size = %d\n", size);
+#if CANARIES_CHECK == 1
 	stack->LCANARY = CANARYVAL;
 	stack->RCANARY = CANARYVAL;
-
-	stack->size = 0;
 	stack->capacity = sizeAlign(sizeof(val_t), size, sizeof(uint64_t))/sizeof(val_t);
+#endif
+	stack->size = 0;
 
+#if CANARIES_CHECK == 1
 	stack->data = (val_t*)calloc(sizeAlign(sizeof(val_t), size, sizeof(uint64_t)) + 2 * sizeof(uint64_t), 1);
-	
+#else
+	stack->capacity = size;
+	stack->data = (val_t*)calloc(sizeof(val_t), stack->capacity);
+#endif
+
 	if (stack->data == NULL) {
 		EXIT_DUMP;
 	}
-
-	*(uint64_t*)stack->data = CANARYVAL;	
+#if CANARIES_CHECK == 1
+	*(uint64_t*)stack->data = CANARYVAL;
 	setDataPtr(&stack->data);
 	*(uint64_t*)(stack->data + size) = CANARYVAL;
-	
+#endif
 	SET_HASH;
 
 	ASSERT_OK;
@@ -36,14 +41,16 @@ int StackDtor(Stack *stack)
 {	
 	ASSERT_OK;
 	
-	memset(stack->data, 0, stack->size);
+	memset(stack->data, 0, stack->capacity * sizeof(val_t));
 
 	stack->capacity = 0;
 	stack->size     =-1;
+#if HASH_CHECK == 1
 	stack->hash     = 0;
-
+#endif
+#if CANARIES_CHECK == 1 
 	setCanaryPtr(&stack->data);
-
+#endif
 	free(stack->data);
 	stack->data = (val_t*)(POISONED_MEM);
 
@@ -99,76 +106,93 @@ int StackPush(Stack *stack, val_t val)
 static int StackResize(Stack *stack, size_t nsize)
 {
 	ASSERT_OK;
-
+#if CANARIES_CHECK == 1
 	*(uint64_t*)(stack->data + stack->capacity) = 0; 
 
 	setCanaryPtr(&stack->data);
+#endif
 	
-	printf("stack resized : ");
-	stack->data = (val_t*)reallocarray(stack->data, sizeAlign(sizeof(val_t), nsize, 
+#if CANARIES_CHECK == 0 
+	stack->data = (val_t*)reallocarray(stack->data, nsize, sizeof(val_t));
+	
+	if (stack->data == NULL)
+		EXIT_ERR;
+
+	memset(stack->data+ stack->size, 0, sizeof(val_t) * (nsize - stack->size));
+#else 
+	stack->data = (val_t*)reallocarray(stack->data, sizeAlign(sizeof(val_t), nsize,
 				sizeof(uint64_t)) + 2 * sizeof(uint64_t), 1);
 
-	setDataPtr(&stack->data);
-	//ISSUE	
-	*(uint64_t*)(stack->data + nsize) = CANARYVAL;
+	if (stack->data == NULL)
+	        EXIT_ERR;       
 
+	memset((char *)(stack->data+ stack->size) + sizeof(uint64_t), 0, sizeof(val_t) * (nsize - stack->size));
+#endif
+
+	
+#if CANARIES_CHECK == 1 
+	setDataPtr(&stack->data);
+		
+	*(uint64_t*)(stack->data + nsize) = CANARYVAL;
+#endif
 	if (stack == NULL)
 		return REALL_ERR;
-
+#if CANARIES_CHECK == 1 
 	stack->capacity = sizeAlign(sizeof(val_t), nsize, sizeof(uint64_t))/sizeof(val_t);;
-	StackPrint(stack);
-	
+#else 
+	stack->capacity = nsize;
+#endif	
 	SET_HASH;
 	ASSERT_OK;
 
 	return NO_ERR;
 }
 
+int StackSetFileName(Stack *stack, const char *name)
+{
+#if MULTIPLE_FILES == 1 
+	if (name == NULL || stack == NULL)
+		return -1;
+	else {
+		stack->filename = (char *)name;
+	}
+#endif
+	return 0;
+}
+
+
 int StackCheck(Stack *stack)
-{//TODO DEFINE
-	if (stack == NULL)	
-		return ERRNUM = NULLPTR_STACK;
+{
+	CHECK_(stack == NULL, 							NULLPTR_STACK);
+	CHECK_(stack->data == NULL, 						UNINIT_DATA);
+	CHECK_(stack->data == (val_t *)(POISONED_MEM),				POISONED_STACK);
+	CHECK_(stack->size > stack->capacity, 					STACK_OVERFLOW);
+	CHECK_(stack->size < 0, 						UNDERFLOW_ERR);
+#if CANARIES_CHECK == 1	
+	CHECK_(stack->LCANARY != CANARYVAL && stack->RCANARY != CANARYVAL, 	INVALID_CANARIES);
+	CHECK_(stack->LCANARY != CANARYVAL, 					INVALID_LCANARY);
+	CHECK_(stack->RCANARY != CANARYVAL, 					INVALID_RCANARY);
+	CHECK_(*(uint64_t*)((char *)stack->data-sizeof(uint64_t)) != CANARYVAL, INVALID_DATA_LCANARY);
+	CHECK_(*(uint64_t*)(stack->data + stack->capacity) != CANARYVAL,        INVALID_DATA_RCANARY);
+#endif
 
-	if (stack->data == NULL) 
-		return ERRNUM = UNINIT_DATA;
-
-	if (stack->data == (val_t *)POISONED_MEM) 
-		return ERRNUM = POISONED_STACK;
-
-	if (stack->size > stack->capacity) 
-		return ERRNUM = STACK_OVERFLOW;
-	
-	if (stack->size < 0)
-		return ERRNUM = UNDERFLOW_ERR;
-
-	if (stack->LCANARY != CANARYVAL && stack->RCANARY != CANARYVAL)
-		return ERRNUM = INVALID_CANARIES;
-
-	if (stack->LCANARY != CANARYVAL)
-		return ERRNUM = INVALID_LCANARY;
-
-	if (stack->RCANARY != CANARYVAL)
-		return ERRNUM = INVALID_RCANARY;
-
-	if (*(uint64_t*)((char *)stack->data-sizeof(uint64_t)) != CANARYVAL)
-		return ERRNUM = INVALID_DATA_LCANARY;
-	
-	if (*(uint64_t*)(stack->data + stack->capacity) != CANARYVAL)
-		return ERRNUM = INVALID_DATA_RCANARY;
-	
-	if (stack->hash != StackHash(stack))
-		return ERRNUM = INVALID_HASH;
-	
+#if HASH_CHECK == 1
+	CHECK_(stack->hash != StackHash(stack),					INVALID_HASH);
+#endif	
 	return NO_ERR;
 }
 
+
+#define file stdout
 void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const int line) {
 #if MULTIPLE_LOGS == 0
-	FILE *file = fopen("log.txt", "w");
+	//FILE *file = fopen("log.txt", "w");
 #else 
 	FILE *file = NULL;
 	if (stack->filename != NULL)
-		*file = fopen(filename, "w");
+		file = fopen(stack->filename, "w");
+	else 
+		file = fopen("log.txt", "w");
 #endif
 	if (file == NULL) 
 		perror("Can't open/create log file\n");
@@ -182,7 +206,7 @@ void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const in
 		return;
 	}
 	
-	fprintf(file, "Stack<%s>[%p]:",typeid(stack->data).name(), stack);	
+	fprintf(file, "Stack<%s>[%p]:",typeid(val_t).name(), stack);	
 	if (ERRNUM)
 		fprintf(file, "ERROR!");
 	else
@@ -190,15 +214,21 @@ void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const in
 
 	fprintf(file, "; \"%s\" called from %s at %s (%d)\n",
 		       VAR_NAME(stack), srcfunc, srcfile, line);
-	fprintf(file, "\thash :  %" PRIu32"\n", StackHash(stack));	
+#if HASH_CHECK == 1
+	if (stack->data != (val_t *)(POISONED_MEM) &&  stack->data != NULL)
+		fprintf(file, "\thash :  %" PRIu32"\n", StackHash(stack));	
+#endif 
+#if CANARIES_CHECK == 1
 	fprintf(file,"\tstructure left canary = %" PRIu64 "\n\tstructure right canary = %" 
 			PRIu64 "\n",stack->LCANARY,stack->RCANARY);
-	
+#endif	
 	fprintf(file, "{\n\tcapasity = %zu;\n\tsize = %d;\n", stack->capacity, stack->size);
-	
-	fprintf(file,"\tleft data canary[%p] = %" PRIu64 "\n", (char *)stack->data-sizeof(uint64_t),
-			*(uint64_t*)((char *)stack->data-sizeof(uint64_t)));
-	
+
+#if CANARIES_CHECK == 1
+	if (stack->data != (val_t *)(POISONED_MEM) &&  stack->data != NULL)	
+		fprintf(file,"\tleft data canary[%p] = %" PRIu64 "\n", (char *)stack->data-sizeof(uint64_t),*(uint64_t*)((char *)stack->data-sizeof(uint64_t)));
+#endif
+
 	fprintf(file, "\tdata[%p]\n\t{\n", stack->data);
 
 	if (stack->data == NULL) {
@@ -217,15 +247,15 @@ void _StackDump(Stack *stack, const char *srcfunc, const char *srcfile, const in
 		}
 	}
 
-	fprintf(file,"\t}\n\tright data canary[%p] : %" PRIu64 "\n}\n\n", 
+	fprintf(file,"\t}\n");
+#if CANARIES_CHECK == 1
+	if (stack->data != (val_t *)(POISONED_MEM) &&  stack->data != NULL)
+		fprintf(file,"\tright data canary[%p] : %" PRIu64 "\n", 
 			stack->data + stack->capacity,*(uint64_t*)(stack->data + stack->capacity));
+#endif
+	fprintf(file,"}\n\n");
+	//fclose(file);
 
-	fclose(file);
-}
-
-void StackPrint(Stack *stack)
-{
-	printf("[SIZE = %d], [CAPACITY = %zu]\n", stack->size, stack->capacity);
 }
 
 static void setCanaryPtr(val_t **data) 
@@ -243,11 +273,8 @@ static void setDataPtr(val_t **data)
 int sizeAlign(size_t val_s, int numb, int aligment)
 {
 	int len = val_s * numb;
-
-	while(len % aligment != 0) {
-		len += val_s;
-	}
-	
+	if (len % aligment != 0)
+		return (len + val_s * (len % aligment));	
 	return len;
 }
 
@@ -255,29 +282,30 @@ int sizeAlign(size_t val_s, int numb, int aligment)
 
 uint32_t djb_hash(const char* data, size_t length)
 {
-	unsigned int hash = 5381;//MAGIC NUMBER
+	unsigned int hash = 5381; // MAGIC NUMBER
 	
-	for (int i = 0; i < length; ++data, ++i)
-	{
-		hash = (hash << 5) + hash + *data;
+	for (int i = 0; i < length; ++i) {
+		hash = (hash << 5) + hash + data[i];
 	}
+
 	return hash;
 }
-
+#if HASH_CHECK == 1
 uint32_t StackHash(Stack *stack)
 {
-	Stack stack_ex = {};
+	Stack stack_test = {};
 
 	uint32_t dhash = 0, stackhash = 0;
 
-	dhash = djb_hash((const char *)stack->data, stack->size * sizeof(val_t));
+	dhash = djb_hash((const char *)stack->data, stack->capacity * sizeof(val_t));
 
 	uint32_t current_hash = stack->hash;	
 	stack->hash = dhash;
-		
-	dhash = djb_hash((const char *)stack, sizeof(stack_ex));
+	
+	dhash = djb_hash((const char *)stack, sizeof(stack_test));
 
 	stack->hash = current_hash;
 
 	return dhash;	
 }
+#endif
